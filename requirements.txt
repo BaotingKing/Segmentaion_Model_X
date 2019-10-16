@@ -1,0 +1,9 @@
+matplotlib
+numpy
+keras
+opencv-python
+keras-applications==1.0.8
+image-classifiers
+segmentation_models
+efficientnet
+albumentations
