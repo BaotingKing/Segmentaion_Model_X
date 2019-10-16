@@ -11,11 +11,11 @@ import os
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-BACKBONE = "efficientnetb3"
-# BACKBONE = "mobilenetv2"
+BACKBONE = "efficientnetb3"    # resnet50/101/152、resnext50/101、densenet121/169、xception、inceptionv3、mobilenetv2
+
 BATCH_SIZE = 8
 # CLASSES = ['grass']
-CLASSES = ['car']
+CLASSES = ['car', 'sky', 'pavement']
 LR = 0.0001
 EPOCHS = 40
 

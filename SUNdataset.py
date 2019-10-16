@@ -6,6 +6,8 @@ import os
 import numpy as np
 import cv2
 import keras
+import json
+from utils_sm import annToMask
 
 
 # classes for data loading and preprocessing
@@ -20,12 +22,14 @@ class SunDataset:
         preprocessing (albumentations.Compose): data preprocessing
             (e.g. noralization, shape manipulation, etc.)
     """
-    CLASSES = ['grass']
-
-    def __init__(self, images_dir, masks_dir, classes=None, augmentation=None, preprocessing=None):
-        self.ids = os.listdir(images_dir)
-        self.images_fps = [os.path.join(images_dir, image_id) for image_id in self.ids]
-        self.masks_fps = [os.path.join(masks_dir, image_id) for image_id in self.ids]
+    def __init__(self, images_info_json, classes=None, augmentation=None, preprocessing=None):
+        self.images_info, self.ids = [], []
+        self.CLASSES = classes
+        with open(images_info_json, 'r') as f:
+            infile = json.load(f)
+        for img_info in infile['annotations']:
+            self.images_info.append(img_info)
+            self.ids.append(img_info['img_name'])
 
         # convert str names to class values on masks
         self.class_values = [self.CLASSES.index(cls.lower()) for cls in classes]
@@ -35,12 +39,25 @@ class SunDataset:
 
     def __getitem__(self, i):
         # read data
-        image = cv2.imread(self.images_fps[i])
+        image = cv2.imread(self.images_info[i]['path'])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(self.masks_fps[i], 0)
+        h = self.images_info[i]['height']
+        w = self.images_info[i]['width']
 
         # extract certain classes from mask (e.g. cars)
-        masks = [(mask == v) for v in self.class_values]
+        masks = []
+        for cl in self.CLASSES:
+            mask = np.zeros([h, w])
+            for obj in self.images_info[i]['object']:
+                if obj['class'] == cl:
+                    mask_temp = annToMask(obj, h, w)
+                    mask = np.where(
+                        mask_temp == 1,
+                        mask_temp,
+                        mask)
+            masks.append(mask)
+
+        # masks = [(mask == v) for v in self.class_values]
         mask = np.stack(masks, axis=-1).astype('float')
 
         # add background if mask is not binary
@@ -64,7 +81,7 @@ class SunDataset:
         return len(self.ids)
 
 
-class Dataloder(keras.utils.Sequence):
+class SunDataloader(keras.utils.Sequence):
     """Load data from dataset and form batches
 
     Args:
