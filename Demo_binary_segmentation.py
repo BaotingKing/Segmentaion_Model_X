@@ -3,6 +3,10 @@
 # @author: ZK
 # Time: 2019/10/15 16:39
 import matplotlib.pyplot as plt
+import random
+import skimage.io
+from skimage import transform
+import time
 import segmentation_models as sm
 from Demo_dataset import *
 from utils_sm import *
@@ -14,8 +18,8 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 BACKBONE = "efficientnetb3"    # resnet50/101/152、resnext50/101、densenet121/169、xception、inceptionv3、mobilenetv2
 
 BATCH_SIZE = 8
-# CLASSES = ['grass']
-CLASSES = ['car', 'sky', 'pavement']
+# CLASSES = ['car', 'sky', 'pavement']
+CLASSES = ['car']
 LR = 0.0001
 EPOCHS = 40
 
@@ -41,11 +45,11 @@ total_loss = dice_loss + (1 * focal_loss)
 # total_loss = sm.losses.binary_focal_dice_loss # or sm.losses.categorical_focal_dice_loss
 metrics = [sm.metrics.IOUScore(threshold=0.5), sm.metrics.FScore(threshold=0.5)]
 
-method = 'train'
-if method == 'train':
-    # compile keras model with defined optimozer, loss and metrics
-    model.compile(optim, total_loss, metrics)
+# compile keras model with defined optimozer, loss and metrics
+model.compile(optim, total_loss, metrics)
 
+method = 'detection'      # detection   eval
+if method == 'train':
     # Dataset for train images & validation images
     train_dataset = Dataset(
         main_draft.x_train_dir,
@@ -71,7 +75,7 @@ if method == 'train':
 
     # define callbacks for learning rate scheduling and best checkpoints saving
     callbacks = [
-        keras.callbacks.ModelCheckpoint('./best_model.h5', save_weights_only=True, save_best_only=True, mode='min'),
+        keras.callbacks.ModelCheckpoint('./model/best_model.h5', save_weights_only=True, save_best_only=True, mode='min'),
         keras.callbacks.ReduceLROnPlateau(),
     ]
 
@@ -115,14 +119,14 @@ elif method == 'eval':
     test_dataloader = Dataloder(test_dataset, batch_size=1, shuffle=False)
 
     # load best weights
-    model.load_weights('best_model.h5')
+    model.load_weights('./model/best_model-10-15.h5')
     scores = model.evaluate_generator(test_dataloader)
 
     print("Loss: {:.5}".format(scores[0]))
     for metric, value in zip(metrics, scores[1:]):
         print("mean {}: {:.5}".format(metric.__name__, value))
 
-    n = 5
+    n = 100
     ids = np.random.choice(np.arange(len(test_dataset)), size=n)
     for i in ids:
         image, gt_mask = test_dataset[i]
@@ -134,4 +138,26 @@ elif method == 'eval':
             gt_mask=gt_mask[..., 0].squeeze(),
             pr_mask=pr_mask[..., 0].squeeze(),
         )
+elif method == 'detection':
+    # load best weights
+    model.load_weights('./model/best_model-10-15.h5')
 
+    IMAGE_DIR = 'F:\\projects\\GitHub\Segmentation\\SegNet-Tutorial-master\\CamVid\\test'
+    # Load a random image from the images folder
+    file_names = next(os.walk(IMAGE_DIR))[2]
+    while True:
+        image = skimage.io.imread(os.path.join(IMAGE_DIR, random.choice(file_names)))
+        image = transform.resize(image, (1024, 1024))
+        image = np.expand_dims(image, axis=0)
+
+        # Step3: Run detection
+        begin_time = time.time() * 1000
+        # results = model.detect([image], verbose=1)
+        pr_mask = model.predict(image).round()
+        end_time = time.time() * 1000
+        run_time = int(round(end_time - begin_time))
+        print('begin_time = {0}/ms end_time = {1}/ms run_time = {2}/ms'.format(begin_time, end_time, run_time))
+        visualize(
+            image=denormalize(image.squeeze()),
+            pr_mask=pr_mask[..., 0].squeeze(),
+        )

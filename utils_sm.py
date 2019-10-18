@@ -23,6 +23,9 @@ def visualize(**images):
         plt.yticks([])
         plt.title(' '.join(name.split('_')).title())
         plt.imshow(image)
+    # plt.ion()
+    # plt.pause(0)  # 显示秒数
+    # plt.close()
     plt.show()
 
 
@@ -86,6 +89,7 @@ def get_validation_augmentation():
     """Add paddings to make image shape divisible by 32"""
     test_transform = [
         A.PadIfNeeded(384, 480)
+        # A.PadIfNeeded(512, 1024)
     ]
     return A.Compose(test_transform)
 
