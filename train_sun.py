@@ -13,7 +13,7 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 # mobilenetv2、efficientnetb3、resnet50/101/152、resnext50/101、densenet121/169、xception、inceptionv3
-BACKBONE = "efficientnetb3"
+BACKBONE = "resnext50"
 BATCH_SIZE = 8
 CLASSES = ['grass']
 LR = 0.0001
@@ -26,13 +26,13 @@ n_classes = 1 if len(CLASSES) == 1 else (len(CLASSES) + 1)  # case for binary an
 activation = 'sigmoid' if n_classes == 1 else 'softmax'
 
 # create model
-# model = sm.Unet(BACKBONE, classes=n_classes, activation=activation)
-model = sm.PSPNet(BACKBONE,
-                  classes=n_classes,
-                  activation=activation)
+model = sm.Unet(BACKBONE, classes=n_classes, activation=activation)
+# model = sm.PSPNet(BACKBONE,
+#                   classes=n_classes,
+#                   activation=activation)
 
 print('**************************************************************\n', model.summary())
-method = 'train'     # detection   eval
+method = 'eval'     # detection   eval
 if method == 'train':
     # define optomizer
     optim = keras.optimizers.Adam(LR)
@@ -73,8 +73,13 @@ if method == 'train':
     assert train_dataloader[0][1].shape == (BATCH_SIZE, 320, 320, n_classes)
 
     # define callbacks for learning rate scheduling and best checkpoints saving
+    filepath = "weights-improvement-{epoch:02d}-{val_acc:.2f}.h5"
     callbacks = [
-        keras.callbacks.ModelCheckpoint('./model/best_model.h5', save_weights_only=True, save_best_only=True, mode='min'),
+        keras.callbacks.ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max'),
+        keras.callbacks.ModelCheckpoint('./model/best_model.h5',
+                                        save_weights_only=True,
+                                        save_best_only=True,
+                                        mode='min'),
         keras.callbacks.ReduceLROnPlateau(),
     ]
 
@@ -108,7 +113,7 @@ elif method == 'eval':
     test_dataloader = SunDataloader(test_dataset, batch_size=1, shuffle=False)
 
     # load best weights
-    model.load_weights('./model/best_model.h5')
+    model.load_weights('./model/best_model-10-22-ResNeXt50.h5')
     scores = model.evaluate_generator(test_dataloader)
 
     print("Loss: {:.5}".format(scores[0]))
@@ -132,9 +137,9 @@ elif method == 'eval':
         )
 elif method == 'detection':
     # load best weights
-    model.load_weights('./model/best_model-10-16-601.h5')
+    model.load_weights('./model/best_model-10-22-ResNeXt50.h5')
 
-    IMAGE_DIR = './image'
+    IMAGE_DIR = './image/0'
     # IMAGE_DIR = 'G:\\Dataset\\SUN\\SUN2012pascalformat\\SUN2012pascalformat\\JPEGImages'
     # Load a random image from the images folder
     file_names = next(os.walk(IMAGE_DIR))[2]
@@ -151,6 +156,7 @@ elif method == 'detection':
             shape = (1024, 1024)
         elif 1024 < max(image.shape[:2]) <= 2048:
             shape = (1024, 2048)
+        shape = (384, 384)
         image = transform.resize(image, shape)
         image = np.expand_dims(image, axis=0)
         # Step3: Run detection

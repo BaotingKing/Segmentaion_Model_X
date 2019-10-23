@@ -88,7 +88,7 @@ def get_training_augmentation():
 def get_validation_augmentation():
     """Add paddings to make image shape divisible by 32"""
     test_transform = [
-        A.PadIfNeeded(384, 480)
+        A.PadIfNeeded(480, 720)
         # A.PadIfNeeded(512, 1024)
     ]
     return A.Compose(test_transform)
